@@ -1,3 +1,4 @@
+torch
+torchvision
 opencv-python
-pyzbar
-Pillow
+yolov5  # If using Ultralytics YOLOv5 pip package or clone the repo
