@@ -79,7 +79,11 @@ pip install -r requirements.txt
 ```
 
 ### 2. Dataset Setup
-Download the PIGRGB-Weight dataset and extract it to the `data/` directory:
+Download the PIGRGB-Weight dataset and extract it to the `data/` directory.
+
+**📁 For detailed setup instructions see: [DATASET_SETUP.md](DATASET_SETUP.md)**
+
+Quick setup:
 ```
 data/
 └── RGB_9579/
