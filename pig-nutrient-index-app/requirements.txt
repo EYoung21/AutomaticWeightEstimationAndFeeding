@@ -2,3 +2,12 @@ torch
 torchvision
 opencv-python
 yolov5  # If using Ultralytics YOLOv5 pip package or clone the repo
+scikit-learn
+pandas
+numpy
+matplotlib
+joblib
+pyzbar  # For QR code detection (backup)
+scipy
+ultralytics  # For YOLOv8/YOLOv5
+seaborn  # For enhanced plotting

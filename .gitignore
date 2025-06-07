@@ -1,0 +1,53 @@
+# Dataset files (too large for Git)
+pig-nutrient-index-app/data/RGB_9579/
+pig-nutrient-index-app/data/*.zip
+pig-nutrient-index-app/data/*.tar.gz
+
+# Trained models (regenerated from training)
+pig-nutrient-index-app/models/
+*.joblib
+*.pkl
+*.h5
+*.pt
+
+# Python cache and temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Generated plots and results
+*.png
+*.jpg
+*.jpeg
+training_results_*.png
+results_*.jpg
+
+# Logs
+*.log
+logs/
+
+# Virtual environments
+venv/
+env/
+.env 
