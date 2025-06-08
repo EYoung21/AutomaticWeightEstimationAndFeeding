@@ -58,11 +58,11 @@ def process_pig_image(image_path, use_trained_model=True):
     if use_trained_model:
         weight_estimator = load_trained_model()
     else:
-        weight_estimator = WeightEstimator()
+    weight_estimator = WeightEstimator()
     
     try:
         if weight_estimator.is_trained:
-            weight = weight_estimator.estimate_weight(image_path)
+    weight = weight_estimator.estimate_weight(image_path)
         else:
             print("Warning: Using basic weight estimation - train model for better accuracy")
             # Fallback to basic estimation
@@ -77,7 +77,7 @@ def process_pig_image(image_path, use_trained_model=True):
             else:
                 weight = 50.0  # Default weight
         
-        print(f"Pig {pig_id} estimated weight: {weight:.2f} kg")
+    print(f"Pig {pig_id} estimated weight: {weight:.2f} kg")
     except Exception as e:
         print(f"Error estimating weight: {e}")
         weight = 50.0  # Default weight
@@ -91,7 +91,7 @@ def process_pig_image(image_path, use_trained_model=True):
     feeder = CalanGateController()
     feed_amount = feeder.get_feed_amount(nutrient_index)
     feeder.control_feeder(pig_id, feed_amount)
-    
+
     # Step 5: Visualize results
     visualize_results(image_path, pig_info, weight, nutrient_index, feed_amount)
     
@@ -169,7 +169,7 @@ def process_pig_image_with_yolo(image_path, use_trained_model=True):
         # Step 3: Estimate pig weight on the cropped pig region
         try:
             if weight_estimator.is_trained:
-                weight = weight_estimator.estimate_weight(pig_crop)
+        weight = weight_estimator.estimate_weight(pig_crop)
             else:
                 # Basic fallback estimation
                 gray = cv2.cvtColor(pig_crop, cv2.COLOR_BGR2GRAY)
@@ -189,7 +189,7 @@ def process_pig_image_with_yolo(image_path, use_trained_model=True):
         feeder = CalanGateController()
         feed_amount = feeder.get_feed_amount(nutrient_index)
         feeder.control_feeder(pig_id, feed_amount)
-        
+
         results.append({
             'pig_id': pig_id,
             'weight': weight,
@@ -286,7 +286,7 @@ def live_camera_monitor():
             # Estimate weight
             try:
                 if weight_estimator.is_trained:
-                    weight = weight_estimator.estimate_weight(pig_crop)
+            weight = weight_estimator.estimate_weight(pig_crop)
                 else:
                     weight = 50.0  # Default
             except:
@@ -306,7 +306,7 @@ def live_camera_monitor():
             info_text = f"{pig_id}: {weight:.1f}kg, idx:{nutrient_index}, feed:{feed_amount}kg"
             cv2.putText(frame, info_text, (x1, y1-10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 2)
-            
+
             # Draw RFID metadata if available
             if pig_info and 'metadata' in pig_info and pig_info['metadata']:
                 metadata = pig_info['metadata']
@@ -387,8 +387,8 @@ if __name__ == "__main__":
             # Process single image
             image_path = os.sys.argv[1]
             if os.path.exists(image_path):
-                process_pig_image(image_path)
+    process_pig_image(image_path)
             else:
                 print(f"Image file not found: {image_path}")
     else:
-        main()
+    main()

@@ -64,7 +64,7 @@ def plot_results(actual, predicted, title="Weight Estimation Results"):
     plt.savefig(f'training_results_{title.lower().replace(" ", "_")}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
-def train_and_evaluate(data_path, model_type='mlp', test_size=0.2, max_samples=None):
+def train_and_evaluate(data_path, model_type='mlp', test_size=0.2, max_samples=None, tune_hyperparams=False):
     """
     Train and evaluate the weight estimation model.
     
@@ -73,11 +73,13 @@ def train_and_evaluate(data_path, model_type='mlp', test_size=0.2, max_samples=N
     model_type: 'mlp' or 'rf' (Random Forest)
     test_size: Fraction of data to use for testing
     max_samples: Maximum number of samples to use (for faster testing)
+    tune_hyperparams: Whether to perform hyperparameter tuning
     """
     print("=== Pig Weight Estimation Model Training ===")
     print(f"Model type: {model_type}")
     print(f"Data path: {data_path}")
     print(f"Test size: {test_size}")
+    print(f"Hyperparameter tuning: {tune_hyperparams}")
     
     # Load dataset
     print("\n1. Loading dataset...")
@@ -106,6 +108,8 @@ def train_and_evaluate(data_path, model_type='mlp', test_size=0.2, max_samples=N
         indices = np.random.choice(len(image_paths), max_samples, replace=False)
         image_paths = [image_paths[i] for i in indices]
         weights = [weights[i] for i in indices]
+    else:
+        print(f"\nUsing full dataset: {len(image_paths)} samples")
     
     # Split dataset
     print(f"\n2. Splitting dataset...")
@@ -116,7 +120,7 @@ def train_and_evaluate(data_path, model_type='mlp', test_size=0.2, max_samples=N
     
     # Initialize and train model
     print(f"\n3. Training {model_type.upper()} model...")
-    estimator = WeightEstimator(model_type=model_type)
+    estimator = WeightEstimator(model_type=model_type, tune_hyperparams=tune_hyperparams)
     
     try:
         training_results = estimator.train(train_paths, train_weights)
@@ -151,7 +155,7 @@ def train_and_evaluate(data_path, model_type='mlp', test_size=0.2, max_samples=N
     
     # Save model
     print("\n5. Saving model...")
-    model_filename = f"pig_weight_model_{model_type}.joblib"
+    model_filename = f"pig_weight_model_{model_type}{'_tuned' if tune_hyperparams else ''}.joblib"
     model_path = os.path.join("models", model_filename)
     
     # Create models directory if it doesn't exist
@@ -206,6 +210,8 @@ def main():
                        help='Fraction of data to use for testing')
     parser.add_argument('--max_samples', type=int, default=None,
                        help='Maximum number of samples to use (for faster testing)')
+    parser.add_argument('--tune_hyperparams', action='store_true',
+                       help='Perform hyperparameter tuning (slower but better accuracy)')
     parser.add_argument('--compare', action='store_true',
                        help='Compare different model types')
     
@@ -224,7 +230,8 @@ def main():
             data_path=args.data_path,
             model_type=args.model_type,
             test_size=args.test_size,
-            max_samples=args.max_samples
+            max_samples=args.max_samples,
+            tune_hyperparams=args.tune_hyperparams
         )
 
 if __name__ == "__main__":

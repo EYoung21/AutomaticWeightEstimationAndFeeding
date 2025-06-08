@@ -71,12 +71,12 @@ pig-nutrient-index-app/
 ### 1. Installation
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd pig-nutrient-index-app
+   git clone <repository-url>
+   cd pig-nutrient-index-app
 
 # Install dependencies
-pip install -r requirements.txt
-```
+   pip install -r requirements.txt
+   ```
 
 ### 2. Dataset Setup
 Download the PIGRGB-Weight dataset and extract it to the `data/` directory.
@@ -123,7 +123,7 @@ python src/train_model.py --max_samples 1000
 ### 5. Run the Application
 ```bash
 # Interactive menu system
-python src/main.py
+   python src/main.py
 
 # Process single image
 python src/main.py path/to/pig/image.png
@@ -133,7 +133,7 @@ python src/main.py --demo
 
 # Live camera monitoring
 python src/main.py --live
-```
+   ```
 
 ## 🔬 Machine Learning Features
 

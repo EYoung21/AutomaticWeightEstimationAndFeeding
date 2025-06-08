@@ -9,38 +9,56 @@ import os
 from scipy import ndimage
 
 class WeightEstimator:
-    def __init__(self, model_type='mlp'):
+    def __init__(self, model_type='mlp', tune_hyperparams=False):
         """
         Enhanced WeightEstimator using machine learning with image features.
         
         Parameters:
         model_type: 'mlp' for Multi-Layer Perceptron or 'rf' for Random Forest
+        tune_hyperparams: Whether to use hyperparameter tuning
         """
         self.model_type = model_type
         self.model = None
         self.scaler = StandardScaler()
         self.is_trained = False
+        self.tune_hyperparams = tune_hyperparams
         
-        # Initialize model
+        # Initialize model with improved hyperparameters
         if model_type == 'mlp':
-            # BPNN with Trainlm-like configuration
-            self.model = MLPRegressor(
-                hidden_layer_sizes=(100, 50, 25),
-                activation='relu',
-                solver='lbfgs',  # Similar to Trainlm
-                alpha=0.001,
-                batch_size='auto',
-                learning_rate='constant',
-                learning_rate_init=0.001,
-                max_iter=1000,
-                random_state=42
-            )
+            if tune_hyperparams:
+                # Will be set during training with GridSearchCV
+                self.model = None
+            else:
+                # Improved hyperparameters for Neural Network
+                self.model = MLPRegressor(
+                    hidden_layer_sizes=(200, 100, 50),  # Deeper network
+                    activation='relu',
+                    solver='adam',  # Better for larger datasets
+                    alpha=0.0001,  # Lower regularization
+                    batch_size=32,  # Fixed batch size
+                    learning_rate='adaptive',  # Adaptive learning rate
+                    learning_rate_init=0.001,
+                    max_iter=2000,  # More iterations
+                    # Note: early_stopping removed for incremental learning compatibility
+                    random_state=42
+                )
         else:
-            self.model = RandomForestRegressor(
-                n_estimators=100,
-                max_depth=10,
-                random_state=42
-            )
+            if tune_hyperparams:
+                # Will be set during training with GridSearchCV
+                self.model = None
+            else:
+                # Improved hyperparameters for Random Forest
+                self.model = RandomForestRegressor(
+                    n_estimators=200,  # More trees
+                    max_depth=15,  # Deeper trees
+                    min_samples_split=5,  # Prevent overfitting
+                    min_samples_leaf=2,
+                    max_features='sqrt',  # Feature sampling
+                    bootstrap=True,
+                    oob_score=True,  # Out-of-bag validation
+                    n_jobs=-1,  # Use all cores
+                    random_state=42
+                )
 
     def extract_pig_features(self, image, mask=None):
         """
@@ -146,7 +164,66 @@ class WeightEstimator:
         # 4. Texture features using Gray Level Co-occurrence Matrix (simplified)
         features['texture_contrast'] = self.calculate_texture_contrast(gray, mask)
         
+        # 5. Additional advanced features for better accuracy
+        features.update(self.extract_advanced_features(image, gray, mask))
+        
         return features
+
+    def _tune_hyperparameters(self, X, y):
+        """Perform hyperparameter tuning using GridSearchCV"""
+        from sklearn.model_selection import GridSearchCV
+        
+        if self.model_type == 'mlp':
+            # MLP hyperparameter grid
+            param_grid = {
+                'hidden_layer_sizes': [
+                    (100, 50), (200, 100), (200, 100, 50), (300, 150, 75)
+                ],
+                'alpha': [0.0001, 0.001, 0.01],
+                'learning_rate_init': [0.001, 0.01, 0.1],
+                'batch_size': [32, 64, 128]
+            }
+            base_model = MLPRegressor(
+                activation='relu',
+                solver='adam',
+                max_iter=2000,
+                early_stopping=True,
+                validation_fraction=0.1,
+                n_iter_no_change=20,
+                random_state=42
+            )
+        else:
+            # Random Forest hyperparameter grid
+            param_grid = {
+                'n_estimators': [100, 200, 300],
+                'max_depth': [10, 15, 20, None],
+                'min_samples_split': [2, 5, 10],
+                'min_samples_leaf': [1, 2, 4],
+                'max_features': ['sqrt', 'log2', None]
+            }
+            base_model = RandomForestRegressor(
+                bootstrap=True,
+                oob_score=True,
+                n_jobs=-1,
+                random_state=42
+            )
+        
+        # Perform grid search
+        grid_search = GridSearchCV(
+            base_model,
+            param_grid,
+            cv=3,  # 3-fold cross-validation
+            scoring='neg_mean_absolute_error',
+            n_jobs=-1,
+            verbose=1
+        )
+        
+        grid_search.fit(X, y)
+        
+        print(f"Best hyperparameters: {grid_search.best_params_}")
+        print(f"Best CV score: {-grid_search.best_score_:.2f} MAE")
+        
+        return grid_search.best_estimator_
 
     def create_pig_mask(self, image):
         """
@@ -193,6 +270,92 @@ class WeightEstimator:
         else:
             return 0
 
+    def extract_advanced_features(self, image, gray, mask):
+        """Extract additional advanced features for improved accuracy"""
+        advanced_features = {}
+        
+        # Color-based features
+        if len(image.shape) == 3:
+            # HSV color space features
+            hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+            pig_region_mask = mask > 0
+            
+            for i, channel in enumerate(['hue', 'saturation', 'value']):
+                channel_data = hsv[:, :, i][pig_region_mask]
+                if len(channel_data) > 0:
+                    advanced_features[f'{channel}_mean'] = np.mean(channel_data)
+                    advanced_features[f'{channel}_std'] = np.std(channel_data)
+                else:
+                    advanced_features[f'{channel}_mean'] = 0
+                    advanced_features[f'{channel}_std'] = 0
+        
+        # Moments-based features
+        if np.sum(mask) > 0:
+            moments = cv2.moments(mask)
+            if moments['m00'] > 0:
+                # Centroid
+                cx = int(moments['m10'] / moments['m00'])
+                cy = int(moments['m01'] / moments['m00'])
+                
+                # Normalized central moments (Hu moments)
+                hu_moments = cv2.HuMoments(moments).flatten()
+                for i, hu in enumerate(hu_moments):
+                    advanced_features[f'hu_moment_{i}'] = -np.sign(hu) * np.log10(np.abs(hu)) if hu != 0 else 0
+            else:
+                for i in range(7):
+                    advanced_features[f'hu_moment_{i}'] = 0
+        
+        # Edge density features
+        edges = cv2.Canny(gray, 50, 150)
+        pig_edges = edges[mask > 0]
+        if len(pig_edges) > 0:
+            advanced_features['edge_density'] = np.sum(pig_edges > 0) / len(pig_edges)
+        else:
+            advanced_features['edge_density'] = 0
+        
+        # Local Binary Pattern features (simplified)
+        if np.sum(mask) > 100:  # Only if pig region is large enough
+            radius = 3
+            n_points = 8 * radius
+            # Simple LBP implementation
+            pig_region = gray.copy()
+            pig_region[mask == 0] = 0
+            
+            # Calculate variance of local patterns
+            kernel = np.ones((3, 3), np.float32) / 9
+            local_mean = cv2.filter2D(pig_region.astype(np.float32), -1, kernel)
+            local_var = cv2.filter2D((pig_region.astype(np.float32) - local_mean) ** 2, -1, kernel)
+            
+            pig_local_var = local_var[mask > 0]
+            if len(pig_local_var) > 0:
+                advanced_features['texture_variance'] = np.mean(pig_local_var)
+            else:
+                advanced_features['texture_variance'] = 0
+        else:
+            advanced_features['texture_variance'] = 0
+        
+        # Shape complexity features
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            
+            # Perimeter to area ratio
+            perimeter = cv2.arcLength(largest_contour, True)
+            area = cv2.contourArea(largest_contour)
+            if area > 0:
+                advanced_features['perimeter_area_ratio'] = perimeter / np.sqrt(area)
+                
+                # Compactness (isoperimetric quotient)
+                advanced_features['compactness'] = (4 * np.pi * area) / (perimeter ** 2)
+            else:
+                advanced_features['perimeter_area_ratio'] = 0
+                advanced_features['compactness'] = 0
+        else:
+            advanced_features['perimeter_area_ratio'] = 0
+            advanced_features['compactness'] = 0
+        
+        return advanced_features
+
     def train(self, image_paths, weights):
         """
         Train the weight estimation model.
@@ -205,19 +368,36 @@ class WeightEstimator:
         features_list = []
         valid_weights = []
         
-        for i, (image_path, weight) in enumerate(zip(image_paths, weights)):
-            try:
-                if i % 100 == 0:
-                    print(f"Processing image {i+1}/{len(image_paths)}")
-                
-                # Extract features
-                features = self.extract_pig_features(image_path)
-                features_list.append(list(features.values()))
-                valid_weights.append(weight)
-                
-            except Exception as e:
-                print(f"Error processing {image_path}: {e}")
-                continue
+        # Process in smaller batches to prevent memory issues
+        batch_size = 50
+        total_batches = (len(image_paths) + batch_size - 1) // batch_size
+        
+        for batch_idx in range(total_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min((batch_idx + 1) * batch_size, len(image_paths))
+            batch_paths = image_paths[start_idx:end_idx]
+            batch_weights = weights[start_idx:end_idx]
+            
+            print(f"Processing batch {batch_idx + 1}/{total_batches} ({start_idx}-{end_idx-1})")
+            
+            for i, (image_path, weight) in enumerate(zip(batch_paths, batch_weights)):
+                try:
+                    global_idx = start_idx + i
+                    if global_idx % 10 == 0:
+                        print(f"  Processing image {global_idx+1}/{len(image_paths)}: {os.path.basename(image_path)}")
+                    
+                    # Extract features
+                    features = self.extract_pig_features(image_path)
+                    features_list.append(list(features.values()))
+                    valid_weights.append(weight)
+                    
+                except Exception as e:
+                    print(f"  Error processing {image_path}: {e}")
+                    continue
+            
+            # Force garbage collection after each batch
+            import gc
+            gc.collect()
         
         if not features_list:
             raise ValueError("No valid features extracted from training data")
@@ -231,7 +411,11 @@ class WeightEstimator:
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
         
-        # Train model
+        # Train model with optional hyperparameter tuning
+        if self.tune_hyperparams:
+            print("Performing hyperparameter tuning...")
+            self.model = self._tune_hyperparameters(X_scaled, y)
+        
         self.model.fit(X_scaled, y)
         self.is_trained = True
         
@@ -332,3 +516,98 @@ class WeightEstimator:
         self.is_trained = model_data['is_trained']
         
         print(f"Model loaded from {filepath}")
+
+    def continue_training(self, additional_image_paths, additional_weights):
+        """
+        Continue training with additional images (only works with MLPRegressor).
+        
+        Parameters:
+        additional_image_paths: List of paths to additional training images
+        additional_weights: List of corresponding weights for additional images
+        """
+        if not self.is_trained:
+            raise ValueError("Model must be trained first before continuing training")
+        
+        if self.model_type != 'mlp':
+            raise ValueError("Incremental training only supported for MLPRegressor (mlp). RandomForest requires full retraining.")
+        
+        print(f"Continuing training with {len(additional_image_paths)} additional images...")
+        
+        # Extract features from additional images
+        features_list = []
+        valid_weights = []
+        
+        # Process in batches
+        batch_size = 50
+        total_batches = (len(additional_image_paths) + batch_size - 1) // batch_size
+        
+        for batch_idx in range(total_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min((batch_idx + 1) * batch_size, len(additional_image_paths))
+            batch_paths = additional_image_paths[start_idx:end_idx]
+            batch_weights = additional_weights[start_idx:end_idx]
+            
+            print(f"Processing additional batch {batch_idx + 1}/{total_batches} ({start_idx}-{end_idx-1})")
+            
+            for i, (image_path, weight) in enumerate(zip(batch_paths, batch_weights)):
+                try:
+                    global_idx = start_idx + i
+                    if global_idx % 10 == 0:
+                        print(f"  Processing additional image {global_idx+1}/{len(additional_image_paths)}: {os.path.basename(image_path)}")
+                    
+                    # Extract features
+                    features = self.extract_pig_features(image_path)
+                    features_list.append(list(features.values()))
+                    valid_weights.append(weight)
+                    
+                except Exception as e:
+                    print(f"  Error processing {image_path}: {e}")
+                    continue
+            
+            # Force garbage collection after each batch
+            import gc
+            gc.collect()
+        
+        if not features_list:
+            print("No valid features extracted from additional training data")
+            return {'mae': None, 'r2': None}
+        
+        # Convert to numpy arrays
+        X_additional = np.array(features_list)
+        y_additional = np.array(valid_weights)
+        
+        print(f"Continuing training with {len(X_additional)} additional samples...")
+        
+        # Scale additional features using existing scaler
+        X_additional_scaled = self.scaler.transform(X_additional)
+        
+        # Continue training using partial_fit
+        self.model.partial_fit(X_additional_scaled, y_additional)
+        
+        # Calculate performance on additional data
+        y_pred_additional = self.model.predict(X_additional_scaled)
+        mae_additional = mean_absolute_error(y_additional, y_pred_additional)
+        r2_additional = r2_score(y_additional, y_pred_additional)
+        
+        print(f"Incremental training completed!")
+        print(f"Additional data MAE: {mae_additional:.2f} kg")
+        print(f"Additional data R²: {r2_additional:.3f}")
+        
+        return {'mae': mae_additional, 'r2': r2_additional}
+
+    def get_remaining_images(self, all_image_paths, all_weights, used_count):
+        """
+        Get the remaining images that haven't been used for training yet.
+        
+        Parameters:
+        all_image_paths: Complete list of image paths
+        all_weights: Complete list of weights
+        used_count: Number of images already used in training
+        
+        Returns:
+        remaining_paths, remaining_weights: Unused images and weights
+        """
+        if used_count >= len(all_image_paths):
+            return [], []
+        
+        return all_image_paths[used_count:], all_weights[used_count:]
