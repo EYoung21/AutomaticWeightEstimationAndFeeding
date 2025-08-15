@@ -5,7 +5,7 @@
 This project uses the PIGRGB-Weight dataset for training the pig weight estimation model.
 
 ### Dataset Information
-- **Total Images**: 9,578 RGB images
+- **Total Images**: 9,579 RGB images
 - **Weight Range**: 73.36kg - 192.48kg  
 - **Mean Weight**: 121.70 ± 32.07kg
 - **Image Conditions**: Multiple heights (1.88m, 1.78m), natural lighting
@@ -14,7 +14,7 @@ This project uses the PIGRGB-Weight dataset for training the pig weight estimati
 ### Download Instructions
 
 1. **Download the dataset** from Google Drive:
-   - Link: https://drive.google.com/file/d/1AvfUDBlVD6ZAHXYdHquwHBt3bUSjZCvy/view?usp=sharing
+   - Link: [Google Drive download](https://drive.google.com/file/d/1AvfUDBlVD6ZAHXYdHquwHBt3bUSjZCvy/view?usp=sharing)
 
 2. **Extract the dataset** to the correct location:
    ```
